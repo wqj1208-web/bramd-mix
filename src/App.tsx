@@ -54,6 +54,7 @@ interface AnalysisResult {
   stage2: {
     concepts: { title: string; details: string }[];
     visualIconDesc: string;
+    visualIconUrl?: string;
     collabProposal: {
       form: string;
       event: string;
@@ -138,7 +139,8 @@ export default function App() {
     "扫描竞品全渠道视觉符号...",
     "计算社交平台情绪震荡指数...",
     "构建私域与公域分发矩阵...",
-    "正在执行风险合规合规性审计..."
+    "正在执行风险合规合规性审计...",
+    "正在渲染品牌视觉符号..."
   ];
 
   useEffect(() => {
@@ -249,6 +251,35 @@ export default function App() {
       });
 
       const data = JSON.parse(response.text);
+
+      // Step 2: Generate Visual Icon Image
+      setLoadingPhase("正在通过星云引擎渲染品牌视觉符号...");
+      try {
+        const iconResponse = await ai.models.generateContent({
+          model: "gemini-2.5-flash-image",
+          contents: {
+            parts: [{
+              text: `Professional corporate brand icon design for "${product}" in "${industry}" industry. 
+                     Description: ${data.stage2.visualIconDesc}. 
+                     Style: Futuristic, minimalist, tech-oriented, neon glow, set against a dark premium background. 
+                     The icon should be clean, centered, and represent the brand core.`
+            }]
+          },
+          config: {
+            imageConfig: {
+              aspectRatio: "1:1"
+            }
+          }
+        });
+
+        const imagePart = iconResponse.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+        if (imagePart?.inlineData) {
+          data.stage2.visualIconUrl = `data:image/png;base64,${imagePart.inlineData.data}`;
+        }
+      } catch (imgErr) {
+        console.warn("Visual Icon rendering skipped or failed:", imgErr);
+      }
+
       setResult(data);
       setStep("RESULT");
     } catch (err) {
@@ -466,9 +497,26 @@ export default function App() {
                         </div>
                     </ModuleCard>
                     <ModuleCard title="视觉符号 Icon">
-                       <div className="flex flex-col items-center justify-center min-h-[120px] text-center italic">
-                          <ImageIcon className="w-12 h-12 text-accent mb-4 opacity-30" />
-                          <p className="text-xs text-text-bold">"{result.stage2.visualIconDesc}"</p>
+                       <div className="flex flex-col items-center justify-center min-h-[160px] text-center italic relative overflow-hidden rounded-xl bg-bg/50 border border-white/5">
+                          {result.stage2.visualIconUrl ? (
+                            <div className="relative group w-full aspect-square flex items-center justify-center p-4">
+                               <div className="absolute inset-0 bg-primary/10 blur-2xl group-hover:bg-primary/20 transition-all opacity-50" />
+                               <img 
+                                 src={result.stage2.visualIconUrl} 
+                                 alt="Visual Icon" 
+                                 referrerPolicy="no-referrer"
+                                 className="relative z-10 w-full h-full object-contain rounded-lg shadow-2xl border border-white/10"
+                               />
+                            </div>
+                          ) : (
+                            <div className="p-4 flex flex-col items-center">
+                              <ImageIcon className="w-12 h-12 text-accent mb-4 opacity-30 animate-pulse" />
+                              <p className="text-[10px] text-text-bold opacity-60">Rendering Engine Idle</p>
+                            </div>
+                          )}
+                          <div className="mt-4 px-4 pb-4">
+                            <p className="text-xs text-text-bold text-center leading-relaxed">"{result.stage2.visualIconDesc}"</p>
+                          </div>
                        </div>
                     </ModuleCard>
                     <ModuleCard title="破圈联名提案">
